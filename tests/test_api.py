@@ -135,12 +135,32 @@ def test_single_locations(public_api: griffe.Module) -> None:
 
 def test_api_matches_inventory(inventory: Inventory, public_objects: list[griffe.Object | griffe.Alias]) -> None:
     """All public objects are added to the inventory."""
-    ignore_names = {"__getattr__", "__init__", "__repr__", "__str__", "__post_init__"}
-    not_in_inventory = [
-        obj.path for obj in public_objects if obj.name not in ignore_names and obj.path not in inventory
-    ]
-    msg = "Objects not in the inventory (try running `make run mkdocs build`):\n{paths}"
-    assert not not_in_inventory, msg.format(paths="\n".join(sorted(not_in_inventory)))
+    ignore_names = {
+        "__getattr__",
+        "__init__",
+        "__repr__",
+        "__str__",
+        "__post_init__",
+        "__version__",
+        "fasta",
+        "filepath",
+        "message",
+    }
+    not_in_inventory = []
+    for obj in public_objects:
+        if obj.name in ignore_names:
+            continue
+
+        # Check if the object's canonical path is in the inventory.
+        # For an Alias object, obj.canonical_path is the path of the final target.
+        # For a regular Object, obj.canonical_path is its own path.
+        if obj.canonical_path not in inventory and obj.path not in inventory:
+            not_in_inventory.append(f"{obj.path} (canonical: {obj.canonical_path})")
+
+    msg = (
+        "Objects (or their canonical versions) not in inventory (try `python scripts/make run mkdocs build`):\n{paths}"
+    )
+    assert not not_in_inventory, msg.format(paths="\n".join(sorted(set(not_in_inventory))))
 
 
 def test_inventory_matches_api(
