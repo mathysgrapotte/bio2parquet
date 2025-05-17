@@ -1,0 +1,20 @@
+# Changes here will be overwritten by Copier.
+_commit: 1.8.4
+_src_path: gh:pawamoy/copier-uv
+author_email: mathysgrapotte@gmail.com
+author_fullname: mathysgrapotte
+author_username: mathysgrapotte
+copyright_date: '2025'
+copyright_holder: mathys grapotte
+copyright_holder_email: mathysgrapotte@gmail.com
+copyright_license: MIT
+insiders: false
+project_description: Convert common bioinformatics file formats to parquet
+project_name: bio2parquet
+python_package_command_line_name: bio2parquet
+python_package_distribution_name: bio2parquet
+python_package_import_name: bio2parquet
+repository_name: bio2parquet
+repository_namespace: bio2parquet
+repository_provider: github.com
+
