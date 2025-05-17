@@ -27,7 +27,7 @@ class _DebugInfo(argparse.Action):
         sys.exit(0)
 
 
-def get_parser() -> argparse.ArgumentParser:
+def _get_parser() -> argparse.ArgumentParser:
     """Return the CLI argument parser.
 
     Returns:
@@ -39,7 +39,7 @@ def get_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(args: list[str] | None = None) -> int:
+def _main(args: list[str] | None = None) -> int:
     """Run the main program.
 
     This function is executed when you type `bio2parquet` or `python -m bio2parquet`.
@@ -50,7 +50,7 @@ def main(args: list[str] | None = None) -> int:
     Returns:
         An exit code.
     """
-    parser = get_parser()
+    parser = _get_parser()
     opts = parser.parse_args(args=args)
     print(opts)
     return 0

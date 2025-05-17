@@ -1,14 +1,13 @@
-"""Entry-point module, in case you use `python -m bio2parquet`.
+"""Module that can be run directly.
 
-Why does this file exist, and why `__main__`? For more info, read:
-
-- https://www.python.org/dev/peps/pep-0338/
-- https://docs.python.org/3/using/cmdline.html#cmdoption-m
+When run as `python -m bio2parquet`, it will invoke the main CLI group.
 """
+
+from __future__ import annotations
 
 import sys
 
-from bio2parquet._internal.cli import main
-
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:]))
+    from bio2parquet.cli import main  # Updated import
+
+    sys.exit(main())  # Call the click group

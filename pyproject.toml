@@ -9,7 +9,7 @@ authors = [{name = "mathysgrapotte", email = "mathysgrapotte@gmail.com"}]
 license = "MIT"
 license-files = ["LICENSE"]
 readme = "README.md"
-requires-python = ">=3.10,<3.14"
+requires-python = ">=3.10,<3.12"
 keywords = []
 dynamic = ["version"]
 classifiers = [
@@ -27,7 +27,12 @@ classifiers = [
     "Topic :: Utilities",
     "Typing :: Typed",
 ]
-dependencies = []
+dependencies = [
+    "click>=8.2.0",
+    "pyarrow>=20.0.0",
+    "datasets>=3.6.0",
+    "rich>=14.0.0",
+]
 
 [project.urls]
 Homepage = "https://bio2parquet.github.io/bio2parquet"
