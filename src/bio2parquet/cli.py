@@ -5,7 +5,7 @@ This module provides the CLI for converting bioinformatics files to Parquet form
 
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 import click
 
@@ -17,11 +17,107 @@ from bio2parquet.fasta import create_dataset_from_fasta
 
 
 def _handle_empty_dataset(dataset: "Dataset") -> None:
-    """Helper function to raise Bio2ParquetError if the dataset is empty."""
+    """Helper function to raise Bio2ParquetError if the dataset is empty.
+
+    Args:
+        dataset: The dataset to check
+
+    Raises:
+        Bio2ParquetError: If the dataset is empty
+    """
     if len(dataset) == 0:
         raise Bio2ParquetError(
             "The FASTA file seems to be empty or could not be parsed correctly, resulting in an empty dataset.",
         )
+
+
+def _validate_fasta_extension(filepath: Path) -> None:
+    """Validates that the input file has a valid FASTA extension.
+
+    Args:
+        filepath: Path to validate
+
+    Raises:
+        click.BadParameter: If file extension is not valid
+    """
+    valid_extensions = (".fasta", ".fa", ".fna", ".fasta.gz", ".fa.gz", ".fna.gz")
+    if not filepath.name.endswith(valid_extensions):
+        raise click.BadParameter(
+            f"Input file must be a FASTA file with one of these extensions: {', '.join(valid_extensions)}",
+            param_hint="fasta_file",
+        )
+
+
+def _get_output_path(input_file: Path, output_file: Optional[Path]) -> Path:
+    """Determines the output file path.
+
+    Args:
+        input_file: The input file path
+        output_file: Optional output file path
+
+    Returns:
+        The output file path
+    """
+    if output_file is None:
+        return Path.cwd() / f"{input_file.stem}.parquet"
+    return output_file
+
+
+def _handle_hf_upload(dataset: "Dataset", repo_id: str, token: Optional[str]) -> None:
+    """Handles uploading the dataset to Hugging Face Hub.
+
+    Args:
+        dataset: The dataset to upload
+        repo_id: The Hugging Face repository ID
+        token: The Hugging Face token
+
+    Raises:
+        SystemExit: If token is missing or upload fails
+    """
+    if not token:
+        click.secho(
+            "Error: --hf-repo-id was provided, but --hf-token is missing. "
+            "Please provide a Hugging Face token to upload the dataset.",
+            fg="red",
+        )
+        sys.exit(1)
+
+    click.echo(f"Pushing dataset to Hugging Face Hub: {repo_id}")
+    dataset.push_to_hub(repo_id=repo_id, token=token)
+    click.echo("Dataset pushed successfully.")
+
+
+def _process_fasta_file(
+    fasta_file: Path,
+    output_file: Optional[Path],
+    hf_token: Optional[str],
+    hf_repo_id: Optional[str],
+) -> None:
+    """Process a FASTA file and convert it to Parquet format.
+
+    Args:
+        fasta_file: Path to the input FASTA file
+        output_file: Optional path to the output Parquet file
+        hf_token: Optional Hugging Face token
+        hf_repo_id: Optional Hugging Face repository ID
+
+    Raises:
+        Bio2ParquetError: If there's an error processing the file
+        click.ClickException: If there's a CLI error
+        RuntimeError: For unexpected runtime errors
+    """
+    _validate_fasta_extension(fasta_file)
+    click.echo(f"Processing FASTA file: {fasta_file}")
+
+    dataset: Dataset = create_dataset_from_fasta(fasta_file)
+    _handle_empty_dataset(dataset)
+
+    output_path = _get_output_path(fasta_file, output_file)
+    dataset.to_parquet(output_path)
+    click.echo(f"Successfully converted to Parquet: {output_path}")
+
+    if hf_repo_id:
+        _handle_hf_upload(dataset, hf_repo_id, hf_token)
 
 
 @click.group()
@@ -55,64 +151,24 @@ def main() -> None:
 )
 def fasta(
     fasta_file: Path,
-    output_file: Path | None,
-    hf_token: str | None,
-    hf_repo_id: str | None,
+    output_file: Optional[Path],
+    hf_token: Optional[str],
+    hf_repo_id: Optional[str],
 ) -> None:
     """Converts a FASTA file to Parquet format.
 
     FASTA_FILE: Path to the input FASTA file (.fasta or .fasta.gz).
     """
     try:
-        if not fasta_file.name.endswith((".fasta", ".fa", ".fna", ".fasta.gz", ".fa.gz", ".fna.gz")):
-            raise click.BadParameter(
-                "Input file must be a FASTA file (e.g., .fasta, .fa, .fna, .fasta.gz)",
-                param_hint="fasta_file",
-            )
-
-        click.echo(f"Processing FASTA file: {fasta_file}")
-
-        dataset: Dataset = create_dataset_from_fasta(fasta_file)
-
-        _handle_empty_dataset(dataset)
-
-        if output_file is None:
-            output_file = Path.cwd() / f"{fasta_file.stem}.parquet"
-
-        dataset.to_parquet(output_file)
-        click.echo(f"Successfully converted to Parquet: {output_file}")
-
-        if hf_repo_id:
-            if not hf_token:
-                click.secho(
-                    "Error: --hf-repo-id was provided, but --hf-token is missing. "
-                    "Please provide a Hugging Face token to upload the dataset.",
-                    fg="red",
-                )
-                sys.exit(1)
-
-            click.echo(f"Pushing dataset to Hugging Face Hub: {hf_repo_id}")
-
-            # TODO: Add dataset card content if provided
-            # from huggingface_hub import HfApi, create_repo, CommitOperationAdd
-            # from datasets.utils.metadata import DatasetMetadata
-            # card_content = ""
-            # if dataset_card:
-            #     with open(dataset_card, 'r') as f:
-            #         card_content = f.read()
-            #     # Potentially parse and validate card_content here
-
-            dataset.push_to_hub(repo_id=hf_repo_id, token=hf_token)
-            click.echo("Dataset pushed successfully.")
-
+        _process_fasta_file(fasta_file, output_file, hf_token, hf_repo_id)
     except Bio2ParquetError as e:
         print_error(e)
         sys.exit(1)
-    except click.ClickException as e:  # Catch click exceptions
+    except click.ClickException as e:
         e.show()
         sys.exit(e.exit_code)
-    except RuntimeError as e:  # Catch unexpected runtime errors
-        print_error(e)  # Fallback for unexpected errors
+    except RuntimeError as e:
+        print_error(e)
         sys.exit(1)
 
 
