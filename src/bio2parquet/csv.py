@@ -109,7 +109,7 @@ def create_dataset_from_csv(filepath: Path) -> Dataset:
 
     Raises:
         FileProcessingError: If the input filepath does not exist or is not a file.
-        InvalidFormatError: If the file is not in valid CSV format.
+        InvalidFormatError: If the file is not in valid CSV format or contains no data rows.
     """
     _validate_file_exists(filepath)
 
@@ -117,15 +117,7 @@ def create_dataset_from_csv(filepath: Path) -> Dataset:
     records = list(read_csv_file(filepath))
 
     if not records:
-        # Create empty dataset with correct features
-        features = Features(
-            {
-                "header": Value("string"),
-                "sequence": Value("string"),
-                "description": Value("string"),
-            },
-        )
-        return Dataset.from_dict({"header": [], "sequence": [], "description": []}, features=features)
+        raise InvalidFormatError("File contains no data rows", str(filepath))
 
     # Create features from the first record
     features = Features(
