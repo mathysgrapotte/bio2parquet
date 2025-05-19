@@ -1,0 +1,5 @@
+header,sequence,description
+seq1,ATCGATCGATCGATCGATCGATCGATCGATCG,First test sequence
+seq2,GCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTA,Second test sequence
+seq3,TATATATATATATATATATATATATATATATA,Third test sequence
+seq4,CGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCG,Fourth test sequence 

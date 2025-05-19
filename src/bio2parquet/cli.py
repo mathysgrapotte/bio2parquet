@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 
 from bio2parquet.errors import Bio2ParquetError, print_error
 from bio2parquet.fasta import create_dataset_from_fasta
+from bio2parquet.csv import create_dataset_from_csv
 
 
 def _handle_empty_dataset(dataset: "Dataset") -> None:
@@ -27,7 +28,7 @@ def _handle_empty_dataset(dataset: "Dataset") -> None:
     """
     if len(dataset) == 0:
         raise Bio2ParquetError(
-            "The FASTA file seems to be empty or could not be parsed correctly, resulting in an empty dataset.",
+            "The input file seems to be empty or could not be parsed correctly, resulting in an empty dataset.",
         )
 
 
@@ -45,6 +46,22 @@ def _validate_fasta_extension(filepath: Path) -> None:
         raise click.BadParameter(
             f"Input file must be a FASTA file with one of these extensions: {', '.join(valid_extensions)}",
             param_hint="fasta_file",
+        )
+
+
+def _validate_csv_extension(filepath: Path) -> None:
+    """Validates that the input file has a valid CSV extension.
+
+    Args:
+        filepath: Path to validate
+
+    Raises:
+        click.BadParameter: If file extension is not valid
+    """
+    if not filepath.name.endswith(".csv"):
+        raise click.BadParameter(
+            "Input file must be a CSV file with .csv extension",
+            param_hint="csv_file",
         )
 
 
@@ -120,12 +137,45 @@ def _process_fasta_file(
         _handle_hf_upload(dataset, hf_repo_id, hf_token)
 
 
+def _process_csv_file(
+    csv_file: Path,
+    output_file: Optional[Path],
+    hf_token: Optional[str],
+    hf_repo_id: Optional[str],
+) -> None:
+    """Process a CSV file and convert it to Parquet format.
+
+    Args:
+        csv_file: Path to the input CSV file
+        output_file: Optional path to the output Parquet file
+        hf_token: Optional Hugging Face token
+        hf_repo_id: Optional Hugging Face repository ID
+
+    Raises:
+        Bio2ParquetError: If there's an error processing the file
+        click.ClickException: If there's a CLI error
+        RuntimeError: For unexpected runtime errors
+    """
+    _validate_csv_extension(csv_file)
+    click.echo(f"Processing CSV file: {csv_file}")
+
+    dataset: Dataset = create_dataset_from_csv(csv_file)
+    _handle_empty_dataset(dataset)
+
+    output_path = _get_output_path(csv_file, output_file)
+    dataset.to_parquet(output_path)
+    click.echo(f"Successfully converted to Parquet: {output_path}")
+
+    if hf_repo_id:
+        _handle_hf_upload(dataset, hf_repo_id, hf_token)
+
+
 @click.group()
 @click.version_option()  # Reads version from pyproject.toml
 def main() -> None:
     """Bio2Parquet: Convert bioinformatics files to Parquet.
 
-    Currently supports FASTA to Parquet conversion.
+    Currently supports FASTA and CSV to Parquet conversion.
     """
 
 
@@ -161,6 +211,50 @@ def fasta(
     """
     try:
         _process_fasta_file(fasta_file, output_file, hf_token, hf_repo_id)
+    except Bio2ParquetError as e:
+        print_error(e)
+        sys.exit(1)
+    except click.ClickException as e:
+        e.show()
+        sys.exit(e.exit_code)
+    except RuntimeError as e:
+        print_error(e)
+        sys.exit(1)
+
+
+@main.command()
+@click.argument(
+    "csv_file",
+    type=click.Path(exists=True, dir_okay=False, readable=True, path_type=Path),
+)
+@click.option(
+    "-o",
+    "--output-file",
+    type=click.Path(dir_okay=False, writable=True, path_type=Path),
+    help="Path to the output Parquet file. If not provided, defaults to a .parquet file with the same name as the input in the current directory.",
+)
+@click.option(
+    "--hf-token",
+    envvar="HF_TOKEN",
+    help="Hugging Face Hub token for uploading the dataset. Can also be set via HF_TOKEN environment variable.",
+)
+@click.option(
+    "--hf-repo-id",
+    help="Hugging Face Hub repository ID to push the dataset to (e.g., 'username/my_csv_dataset'). Requires --hf-token.",
+)
+def csv(
+    csv_file: Path,
+    output_file: Optional[Path],
+    hf_token: Optional[str],
+    hf_repo_id: Optional[str],
+) -> None:
+    """Converts a CSV file to Parquet format.
+
+    CSV_FILE: Path to the input CSV file (.csv).
+    The CSV file must have at least 'header' and 'sequence' columns.
+    """
+    try:
+        _process_csv_file(csv_file, output_file, hf_token, hf_repo_id)
     except Bio2ParquetError as e:
         print_error(e)
         sys.exit(1)
