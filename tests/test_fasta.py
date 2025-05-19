@@ -68,8 +68,9 @@ def test_read_fasta_file_valid(file_fixture_name: str, request: pytest.FixtureRe
 
 
 def test_read_fasta_file_empty(empty_fasta_file: Path) -> None:
-    records = list(read_fasta_file(empty_fasta_file))
-    assert len(records) == 0, "Reading an empty FASTA file should yield no records."
+    with pytest.raises(InvalidFormatError) as excinfo:
+        list(read_fasta_file(empty_fasta_file))
+    assert "File is empty: no FASTA records found." in str(excinfo.value), "Incorrect error for empty FASTA file."
 
 
 def test_read_fasta_file_no_header_error(malformed_fasta_file_no_header: Path) -> None:
@@ -110,12 +111,9 @@ def test_create_dataset_from_fasta_valid(file_fixture_name: str, request: pytest
 
 
 def test_create_dataset_from_empty_fasta(empty_fasta_file: Path) -> None:
-    # Expect this to create an empty dataset without raising an error during generation
-    # The CLI will later assert that the dataset is not empty.
-    dataset = create_dataset_from_fasta(empty_fasta_file)
-    assert isinstance(dataset, Dataset), "The result should be a Hugging Face Dataset even for empty input."
-    assert len(dataset) == 0, "Dataset from empty FASTA should be empty."
-    assert list(dataset.column_names) == ["header", "sequence"], "Dataset from empty FASTA has incorrect columns."
+    with pytest.raises(InvalidFormatError) as excinfo:
+        create_dataset_from_fasta(empty_fasta_file)
+    assert "File is empty: no FASTA records found." in str(excinfo.value), "Incorrect error for empty FASTA file."
 
 
 def test_create_dataset_from_fasta_non_existent() -> None:
