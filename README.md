@@ -9,11 +9,11 @@ Convert your genomic data to high-performance Parquet for seamless integration a
 
 ## 🚀 Features
 
-- **High Performance**: Convert bioinformatics files to Parquet format for faster data processing
-- **Seamless Integration**: Easy integration with modern data science and ML pipelines
-- **Multiple Formats**: Support for various bioinformatics file formats
-- **Optimized Storage**: Efficient data compression and storage
+- **FASTA Support**: Convert FASTA files (.fasta, .fa, .fna) to Parquet format
+- **Compression Support**: Handle both plain and gzipped FASTA files
+- **Hugging Face Integration**: Direct upload to Hugging Face Hub for dataset sharing
 - **Python Native**: Built with Python for easy integration into your workflow
+- **Type Safety**: Full type hints support for better development experience
 
 ## 📦 Installation
 
@@ -29,11 +29,30 @@ uv tool install bio2parquet
 
 ## 🎯 Quick Start
 
-```python
-from bio2parquet import convert
+### Command Line Interface
 
-# Convert your bioinformatics file to Parquet
-convert("input.bam", "output.parquet")
+```bash
+# Basic conversion
+bio2parquet fasta input.fasta
+
+# Specify output file
+bio2parquet fasta input.fasta -o output.parquet
+
+# Upload to Hugging Face Hub
+bio2parquet fasta input.fasta --hf-repo-id username/dataset-name --hf-token your_token
+```
+
+### Python API
+
+```python
+from bio2parquet import create_dataset_from_fasta
+
+# Convert FASTA to Parquet
+dataset = create_dataset_from_fasta("input.fasta")
+dataset.to_parquet("output.parquet")
+
+# Upload to Hugging Face Hub
+dataset.push_to_hub("username/dataset-name", token="your_token")
 ```
 
 ## 📚 Documentation
