@@ -32,6 +32,7 @@ dependencies = [
     "pyarrow>=20.0.0",
     "datasets>=3.6.0",
     "rich>=14.0.0",
+    "biopython>=1.83",
 ]
 
 [project.urls]
