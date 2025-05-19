@@ -2,7 +2,6 @@
 
 import csv
 from pathlib import Path
-from typing import NoReturn
 
 from datasets import Dataset, load_dataset
 
@@ -24,13 +23,6 @@ def _validate_file_exists(filepath: Path) -> None:
         raise FileProcessingError(f"Input path is not a file: {filepath}", str(filepath))
 
 
-def _raise_missing_columns(missing_columns: set[str], filepath: Path) -> NoReturn:
-    raise InvalidFormatError(
-        f"Missing required columns: {', '.join(missing_columns)}",
-        str(filepath),
-    )
-
-
 def _validate_csv_content(filepath: Path) -> None:
     """Validates that the CSV file has the required format and content.
 
@@ -44,19 +36,13 @@ def _validate_csv_content(filepath: Path) -> None:
         with open(filepath, newline="", encoding="utf-8") as f:
             reader = csv.reader(f)
             try:
-                header = next(reader)
+                _header = next(reader)
             except StopIteration as err:
                 raise InvalidFormatError("File is empty: no CSV records found.", str(filepath)) from err
 
-            # Validate required columns
-            required_columns = {"header", "sequence"}
-            missing_columns = required_columns - set(header)
-            if missing_columns:
-                _raise_missing_columns(missing_columns, filepath)
-
             # Check if there are any data rows
             try:
-                next(reader)
+                _first_row = next(reader)
             except StopIteration as err:
                 raise InvalidFormatError("File contains no data rows", str(filepath)) from err
 
