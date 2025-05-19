@@ -2,10 +2,11 @@
 
 import csv
 import gzip
-from pathlib import Path
 import logging
+from pathlib import Path
 
 import pytest
+from _pytest.logging import LogCaptureFixture
 from datasets import Dataset
 
 from bio2parquet.csv import create_dataset_from_csv
@@ -123,10 +124,10 @@ def test_create_dataset_from_csv_only_required_columns(tmp_path: Path) -> None:
     assert dataset[0]["sequence"] == "ATCGATCGATCGATCGATCGATCGATCGATCG"
 
 
-def test_create_dataset_from_gzipped_csv(caplog) -> None:
+def test_create_dataset_from_gzipped_csv(caplog: LogCaptureFixture) -> None:
     """Test creating a dataset from a valid gzipped CSV file."""
     caplog.set_level(logging.INFO)
-    
+
     gzipped_csv_path = Path("tests/data/csv/sample.csv.gz")
     dataset = create_dataset_from_csv(gzipped_csv_path)
 
@@ -134,11 +135,6 @@ def test_create_dataset_from_gzipped_csv(caplog) -> None:
     logger.info("Dataset contents:")
     for i in range(len(dataset)):
         logger.info(f"Row {i}: {dataset[i]}")
-
-    # Print all captured log records
-    print("\nCaptured log records:")
-    for record in caplog.records:
-        print(f"{record.levelname}: {record.message}")
 
     assert isinstance(dataset, Dataset)
     assert len(dataset) == 4
