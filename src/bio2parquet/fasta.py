@@ -4,7 +4,7 @@ import gzip
 from collections.abc import Iterator
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional, TextIO
 
 from Bio import SeqIO
 from datasets import Dataset, Features, Value
@@ -12,7 +12,65 @@ from datasets import Dataset, Features, Value
 from bio2parquet.errors import FileProcessingError, InvalidFormatError
 
 
+def _validate_file_exists(filepath: Path) -> None:
+    """Validates that the file exists and is a file.
+
+    Args:
+        filepath: Path to validate
+
+    Raises:
+        FileProcessingError: If file doesn't exist or isn't a file
+    """
+    if not filepath.exists():
+        raise FileProcessingError(f"Input file does not exist: {filepath}", str(filepath))
+    if not filepath.is_file():
+        raise FileProcessingError(f"Input path is not a file: {filepath}", str(filepath))
+
+
+def _validate_fasta_content(handle: TextIO, filepath: Path) -> None:
+    """Validates the initial content of a FASTA file.
+
+    Args:
+        handle: File handle to validate
+        filepath: Path to the file being validated
+
+    Raises:
+        InvalidFormatError: If file is empty or doesn't start with a header
+    """
+    first_line = handle.readline()
+    if first_line == "":
+        _raise_invalid_format_error("File is empty: no FASTA records found.", str(filepath))
+    if not first_line.strip().startswith(">"):
+        _raise_invalid_format_error("Sequence data found before a header line", str(filepath))
+    handle.seek(0)
+
+
+def _validate_record(record: Any, filepath: Path) -> None:
+    """Validates a single FASTA record.
+
+    Args:
+        record: The FASTA record to validate
+        filepath: Path to the file being processed
+
+    Raises:
+        InvalidFormatError: If record is invalid
+    """
+    if not record.seq:
+        _raise_invalid_format_error("Sequence missing for header.", str(filepath))
+    if not record.id:
+        _raise_invalid_format_error("Header missing for sequence.", str(filepath))
+
+
 def _raise_invalid_format_error(message: str, filepath_str: str) -> None:
+    """Raises an InvalidFormatError with the given message.
+
+    Args:
+        message: The error message
+        filepath_str: The filepath as a string
+
+    Raises:
+        InvalidFormatError: Always raises this exception
+    """
     raise InvalidFormatError(message, filepath_str)
 
 
@@ -20,6 +78,7 @@ def read_fasta_file(filepath: Path) -> Iterator[dict[str, str]]:
     """Reads a FASTA file and yields records as dictionaries.
 
     Handles both .fasta and .fasta.gz files using Bio.SeqIO for efficient parsing.
+    Validates file format and content before processing.
 
     Args:
         filepath: Path to the FASTA file.
@@ -31,36 +90,21 @@ def read_fasta_file(filepath: Path) -> Iterator[dict[str, str]]:
         FileProcessingError: If the file cannot be read.
         InvalidFormatError: If the file is not in valid FASTA format.
     """
-    if not filepath.exists():
-        raise FileProcessingError(f"Input file does not exist: {filepath}", str(filepath))
-    if not filepath.is_file():
-        raise FileProcessingError(f"Input path is not a file: {filepath}", str(filepath))
+    _validate_file_exists(filepath)
 
     try:
         # Handle gzip files explicitly
         if filepath.name.endswith(".gz"):
             with gzip.open(filepath, "rt", encoding="utf-8") as handle:
-                first_line = handle.readline()
-                if first_line == "":
-                    _raise_invalid_format_error("File is empty: no FASTA records found.", str(filepath))
-                if not first_line.strip().startswith(">"):
-                    _raise_invalid_format_error("Sequence data found before a header line", str(filepath))
-                handle.seek(0)
+                _validate_fasta_content(handle, filepath)
                 for record in SeqIO.parse(handle, "fasta"):
-                    if not record.seq:
-                        _raise_invalid_format_error("Sequence missing for header.", str(filepath))
+                    _validate_record(record, filepath)
                     yield {"header": record.id, "sequence": str(record.seq)}
         else:
             with open(filepath, encoding="utf-8") as handle:
-                first_line = handle.readline()
-                if first_line == "":
-                    _raise_invalid_format_error("File is empty: no FASTA records found.", str(filepath))
-                if not first_line.strip().startswith(">"):
-                    _raise_invalid_format_error("Sequence data found before a header line", str(filepath))
-                handle.seek(0)
+                _validate_fasta_content(handle, filepath)
                 for record in SeqIO.parse(handle, "fasta"):
-                    if not record.seq:
-                        _raise_invalid_format_error("Sequence missing for header.", str(filepath))
+                    _validate_record(record, filepath)
                     yield {"header": record.id, "sequence": str(record.seq)}
     except FileNotFoundError:
         raise FileProcessingError(f"File not found: {filepath}", str(filepath)) from None
@@ -98,10 +142,7 @@ def create_dataset_from_fasta(filepath: Path, chunk_size: int = 1000, max_worker
     Raises:
         FileProcessingError: If the input filepath does not exist or is not a file.
     """
-    if not filepath.exists():
-        raise FileProcessingError(f"Input file does not exist: {filepath}", str(filepath))
-    if not filepath.is_file():
-        raise FileProcessingError(f"Input path is not a file: {filepath}", str(filepath))
+    _validate_file_exists(filepath)
 
     features = Features(
         {
