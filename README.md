@@ -3,7 +3,6 @@
 [![ci](https://github.com/bio2parquet/bio2parquet/workflows/ci/badge.svg)](https://github.com/bio2parquet/bio2parquet/actions?query=workflow%3Aci)
 [![documentation](https://img.shields.io/badge/docs-mkdocs-708FCC.svg?style=flat)](https://bio2parquet.github.io/bio2parquet/)
 [![pypi version](https://img.shields.io/pypi/v/bio2parquet.svg)](https://pypi.org/project/bio2parquet/)
-[![gitter](https://badges.gitter.im/join%20chat.svg)](https://app.gitter.im/#/room/#bio2parquet:gitter.im)
 
 Convert your genomic data to high-performance Parquet for seamless integration and faster ML pipeline training.
 
@@ -66,7 +65,3 @@ We welcome contributions! Please see our [Contributing Guide](docs/contributing.
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 💬 Community
-
-Join our community on [Gitter](https://app.gitter.im/#/room/#bio2parquet:gitter.im) to discuss features, ask questions, and connect with other users.
