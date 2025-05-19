@@ -3,19 +3,18 @@
 import csv
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any, Optional
 
-from datasets import Dataset, Features, Value
+from datasets import Dataset
 
 from bio2parquet.errors import FileProcessingError, InvalidFormatError
 
 
 def _validate_file_exists(filepath: Path) -> None:
     """Validates that the file exists and is a file.
-    
+
     Args:
         filepath: Path to validate
-        
+
     Raises:
         FileProcessingError: If file doesn't exist or isn't a file
     """
@@ -27,10 +26,10 @@ def _validate_file_exists(filepath: Path) -> None:
 
 def _validate_csv_header(header: list[str]) -> None:
     """Validates that the CSV header contains required columns.
-    
+
     Args:
         header: List of column names from the CSV header
-        
+
     Raises:
         InvalidFormatError: If required columns are missing
     """
@@ -45,11 +44,11 @@ def _validate_csv_header(header: list[str]) -> None:
 
 def _raise_invalid_format_error(message: str, filepath_str: str) -> None:
     """Raises an InvalidFormatError with the given message.
-    
+
     Args:
         message: The error message
         filepath_str: The filepath as a string
-        
+
     Raises:
         InvalidFormatError: Always raises this exception
     """
@@ -80,9 +79,9 @@ def read_csv_file(filepath: Path) -> Iterator[dict[str, str]]:
                 header = next(reader)
             except StopIteration:
                 _raise_invalid_format_error("File is empty: no CSV records found.", str(filepath))
-            
+
             _validate_csv_header(header)
-            
+
             for row in reader:
                 if len(row) != len(header):
                     _raise_invalid_format_error(
@@ -90,7 +89,7 @@ def read_csv_file(filepath: Path) -> Iterator[dict[str, str]]:
                         str(filepath),
                     )
                 yield dict(zip(header, row))
-                
+
     except FileNotFoundError:
         raise FileProcessingError(f"File not found: {filepath}", str(filepath)) from None
     except InvalidFormatError:
@@ -100,7 +99,7 @@ def read_csv_file(filepath: Path) -> Iterator[dict[str, str]]:
 
 
 def create_dataset_from_csv(filepath: Path) -> Dataset:
-    """Creates a Hugging Face Dataset from a CSV file.
+    """Creates a Hugging Face Dataset from a CSV file with dynamic columns.
 
     Args:
         filepath: Path to the CSV file.
@@ -110,33 +109,22 @@ def create_dataset_from_csv(filepath: Path) -> Dataset:
 
     Raises:
         FileProcessingError: If the input filepath does not exist or is not a file.
-        InvalidFormatError: If the file is not in valid CSV format.
+        InvalidFormatError: If the file is not in valid CSV format or missing required columns.
     """
-    _validate_file_exists(filepath)
+    if not filepath.exists():
+        raise FileProcessingError(f"Input file does not exist: {filepath}", str(filepath))
+    if not filepath.is_file():
+        raise FileProcessingError(f"Input path is not a file: {filepath}", str(filepath))
 
-    # Read all records into memory
-    records = list(read_csv_file(filepath))
+    try:
+        dataset = Dataset.from_csv(str(filepath))
+    except Exception as e:
+        raise InvalidFormatError(f"Could not read CSV: {e}", str(filepath)) from e
 
-    if not records:
-        # Create empty dataset with correct features
-        features = Features(
-            {
-                "header": Value("string"),
-                "sequence": Value("string"),
-                "description": Value("string"),
-            },
-        )
-        return Dataset.from_dict({"header": [], "sequence": [], "description": []}, features=features)
+    # Check for required columns
+    required_columns = {"header", "sequence"}
+    missing = required_columns - set(dataset.column_names)
+    if missing:
+        raise InvalidFormatError(f"Missing required columns: {', '.join(missing)}", str(filepath))
 
-    # Create features from the first record
-    features = Features(
-        {
-            key: Value("string")
-            for key in records[0].keys()
-        },
-    )
-
-    def gen() -> Iterator[dict[str, str]]:
-        yield from records
-
-    return Dataset.from_generator(gen, features=features) 
+    return dataset
