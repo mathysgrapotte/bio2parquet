@@ -25,4 +25,4 @@ except importlib.metadata.PackageNotFoundError:
 
 from bio2parquet.cli import main
 from bio2parquet.errors import Bio2ParquetError, FileProcessingError, InvalidFormatError, print_error
-from bio2parquet.fasta_processor import create_dataset_from_fasta, read_fasta_file
+from bio2parquet.fasta import create_dataset_from_fasta, read_fasta_file
