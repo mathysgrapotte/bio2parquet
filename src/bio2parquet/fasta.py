@@ -1,11 +1,11 @@
 """FASTA file processing and conversion to Parquet datasets."""
 
+import gzip
 from collections.abc import Iterator
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 from typing import Optional
 
-import gzip
 from Bio import SeqIO
 from datasets import Dataset, Features, Value
 
