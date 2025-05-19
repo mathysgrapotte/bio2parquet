@@ -42,27 +42,27 @@ def read_fasta_file(filepath: Path) -> Iterator[dict[str, str]]:
         # Handle gzip files explicitly
         if filepath.name.endswith(".gz"):
             with gzip.open(filepath, "rt", encoding="utf-8") as handle:
-                # Read first line to check format
-                first_line = handle.readline().strip()
-                if not first_line.startswith(">"):
-                    raise InvalidFormatError("File does not start with a header line", str(filepath))
-                handle.seek(0)  # Reset file pointer
-                
+                first_line = handle.readline()
+                if first_line == "":
+                    raise InvalidFormatError("Sequence data found before a header line", str(filepath))
+                if not first_line.strip().startswith(">"):
+                    raise InvalidFormatError("Sequence data found before a header line", str(filepath))
+                handle.seek(0)
                 for record in SeqIO.parse(handle, "fasta"):
                     if not record.seq:
-                        raise InvalidFormatError(f"Sequence missing for header: {record.id}", str(filepath))
+                        raise InvalidFormatError("Sequence missing for header.", str(filepath))
                     yield {"header": record.id, "sequence": str(record.seq)}
         else:
             with open(filepath, "r", encoding="utf-8") as handle:
-                # Read first line to check format
-                first_line = handle.readline().strip()
-                if not first_line.startswith(">"):
-                    raise InvalidFormatError("File does not start with a header line", str(filepath))
-                handle.seek(0)  # Reset file pointer
-                
+                first_line = handle.readline()
+                if first_line == "":
+                    raise InvalidFormatError("Sequence data found before a header line", str(filepath))
+                if not first_line.strip().startswith(">"):
+                    raise InvalidFormatError("Sequence data found before a header line", str(filepath))
+                handle.seek(0)
                 for record in SeqIO.parse(handle, "fasta"):
                     if not record.seq:
-                        raise InvalidFormatError(f"Sequence missing for header: {record.id}", str(filepath))
+                        raise InvalidFormatError("Sequence missing for header.", str(filepath))
                     yield {"header": record.id, "sequence": str(record.seq)}
     except FileNotFoundError:
         raise FileProcessingError(f"File not found: {filepath}", str(filepath)) from None
