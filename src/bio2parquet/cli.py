@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from datasets import Dataset
 
 from bio2parquet.errors import Bio2ParquetError, print_error
-from bio2parquet.fasta_processor import create_dataset_from_fasta
+from bio2parquet.fasta import create_dataset_from_fasta
 
 
 def _handle_empty_dataset(dataset: "Dataset") -> None:
