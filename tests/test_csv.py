@@ -10,7 +10,6 @@ from bio2parquet.csv import create_dataset_from_csv
 from bio2parquet.errors import FileProcessingError, InvalidFormatError
 
 # Suppress ResourceWarning for unclosed files caused by upstream pandas/datasets bug.
-# See: https://github.com/huggingface/datasets/issues/6197 and pandas issues on file closing.
 pytestmark = pytest.mark.filterwarnings(
     "ignore:unclosed file <_io.BufferedReader.*:ResourceWarning",
 )
@@ -43,7 +42,6 @@ def test_create_dataset_from_csv_valid_file(sample_csv_path: Path) -> None:
     assert len(dataset) == 2
     assert set(dataset.features.keys()) == {"header", "sequence", "description"}
 
-
     # Check first record
     assert dataset[0]["header"] == "seq1"
     assert dataset[0]["sequence"] == "ATCGATCGATCGATCGATCGATCGATCGATCG"
@@ -74,7 +72,6 @@ def test_create_dataset_from_csv_empty_file(tmp_path: Path) -> None:
         writer = csv.writer(f)
         writer.writerow(["header", "sequence", "description"])
 
-
     with pytest.raises(InvalidFormatError):
         create_dataset_from_csv(csv_path)
 
@@ -101,4 +98,3 @@ def test_create_dataset_from_csv_only_required_columns(tmp_path: Path) -> None:
     assert set(dataset.features.keys()) == {"header", "sequence"}
     assert dataset[0]["header"] == "seq1"
     assert dataset[0]["sequence"] == "ATCGATCGATCGATCGATCGATCGATCGATCG"
-

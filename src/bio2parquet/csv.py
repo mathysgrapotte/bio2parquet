@@ -1,10 +1,9 @@
 """CSV file processing and conversion to Parquet datasets."""
 
 import csv
-from collections.abc import Iterator
 from pathlib import Path
 
-from datasets import Dataset
+from datasets import Dataset, load_dataset
 
 from bio2parquet.errors import FileProcessingError, InvalidFormatError
 
@@ -24,74 +23,29 @@ def _validate_file_exists(filepath: Path) -> None:
         raise FileProcessingError(f"Input path is not a file: {filepath}", str(filepath))
 
 
-def _validate_csv_header(header: list[str]) -> None:
-    """Validates that the CSV header contains required columns.
+def _validate_csv_content(filepath: Path) -> None:
+    """Validates that the CSV file has the required format and content.
 
     Args:
-        header: List of column names from the CSV header
+        filepath: Path to the CSV file
 
     Raises:
-        InvalidFormatError: If required columns are missing
+        InvalidFormatError: If the file is empty or missing required columns
     """
-    required_columns = {"header", "sequence"}
-    missing_columns = required_columns - set(header)
-    if missing_columns:
-        raise InvalidFormatError(
-            f"Missing required columns: {', '.join(missing_columns)}",
-            "CSV file",
-        )
-
-
-def _raise_invalid_format_error(message: str, filepath_str: str) -> None:
-    """Raises an InvalidFormatError with the given message.
-
-    Args:
-        message: The error message
-        filepath_str: The filepath as a string
-
-    Raises:
-        InvalidFormatError: Always raises this exception
-    """
-    raise InvalidFormatError(message, filepath_str)
-
-
-def read_csv_file(filepath: Path) -> Iterator[dict[str, str]]:
-    """Reads a CSV file and yields records as dictionaries.
-
-    Validates file format and content before processing.
-
-    Args:
-        filepath: Path to the CSV file.
-
-    Yields:
-        A dictionary with column names as keys for each record.
-
-    Raises:
-        FileProcessingError: If the file cannot be read.
-        InvalidFormatError: If the file is not in valid CSV format.
-    """
-    _validate_file_exists(filepath)
-
     try:
-        with open(filepath, newline="", encoding="utf-8") as handle:
-            reader = csv.reader(handle)
+        with open(filepath, newline="", encoding="utf-8") as f:
+            reader = csv.reader(f)
             try:
-                header = next(reader)
-            except StopIteration:
-                _raise_invalid_format_error("File is empty: no CSV records found.", str(filepath))
+                _header = next(reader)
+            except StopIteration as err:
+                raise InvalidFormatError("File is empty: no CSV records found.", str(filepath)) from err
 
-            _validate_csv_header(header)
+            # Check if there are any data rows
+            try:
+                _first_row = next(reader)
+            except StopIteration as err:
+                raise InvalidFormatError("File contains no data rows", str(filepath)) from err
 
-            for row in reader:
-                if len(row) != len(header):
-                    _raise_invalid_format_error(
-                        f"Row has {len(row)} columns, expected {len(header)}",
-                        str(filepath),
-                    )
-                yield dict(zip(header, row))
-
-    except FileNotFoundError:
-        raise FileProcessingError(f"File not found: {filepath}", str(filepath)) from None
     except InvalidFormatError:
         raise
     except Exception as e:
@@ -112,23 +66,12 @@ def create_dataset_from_csv(filepath: Path) -> Dataset:
         InvalidFormatError: If the file is not in valid CSV format or contains no data rows.
     """
     _validate_file_exists(filepath)
+    _validate_csv_content(filepath)
 
-    # Read all records into memory
-    records = list(read_csv_file(filepath))
-
-    if not records:
-        raise InvalidFormatError("File contains no data rows", str(filepath))
-
-    # Create features from the first record
-    features = Features(
-        {key: Value("string") for key in records[0]},
-    )
-
-    # Check for required columns
-    required_columns = {"header", "sequence"}
-    missing = required_columns - set(dataset.column_names)
-    if missing:
-        raise InvalidFormatError(f"Missing required columns: {', '.join(missing)}", str(filepath))
-
-
-    return Dataset.from_generator(gen, features=features)
+    try:
+        # Load the dataset using Hugging Face's load_dataset
+        result = load_dataset("csv", data_files=str(filepath))["train"]
+    except Exception as e:
+        raise FileProcessingError(f"Error reading file {filepath}: {e}", str(filepath)) from e
+    else:
+        return result
