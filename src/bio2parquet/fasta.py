@@ -2,9 +2,11 @@
 
 import gzip
 from collections.abc import Iterator
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, List
 
+from Bio import SeqIO
 from datasets import Dataset, Features, Value
 
 from bio2parquet.errors import FileProcessingError, InvalidFormatError
