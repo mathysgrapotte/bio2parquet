@@ -3,6 +3,7 @@
 import csv
 import gzip
 from pathlib import Path
+import logging
 
 import pytest
 from datasets import Dataset
@@ -14,6 +15,8 @@ from bio2parquet.errors import FileProcessingError, InvalidFormatError
 pytestmark = pytest.mark.filterwarnings(
     "ignore:unclosed file <_io.BufferedReader.*:ResourceWarning",
 )
+
+logger = logging.getLogger(__name__)
 
 
 @pytest.fixture
@@ -120,13 +123,25 @@ def test_create_dataset_from_csv_only_required_columns(tmp_path: Path) -> None:
     assert dataset[0]["sequence"] == "ATCGATCGATCGATCGATCGATCGATCGATCG"
 
 
-def test_create_dataset_from_gzipped_csv() -> None:
+def test_create_dataset_from_gzipped_csv(caplog) -> None:
     """Test creating a dataset from a valid gzipped CSV file."""
+    caplog.set_level(logging.INFO)
+    
     gzipped_csv_path = Path("tests/data/csv/sample.csv.gz")
     dataset = create_dataset_from_csv(gzipped_csv_path)
 
+    # Log dataset contents
+    logger.info("Dataset contents:")
+    for i in range(len(dataset)):
+        logger.info(f"Row {i}: {dataset[i]}")
+
+    # Print all captured log records
+    print("\nCaptured log records:")
+    for record in caplog.records:
+        print(f"{record.levelname}: {record.message}")
+
     assert isinstance(dataset, Dataset)
-    assert len(dataset) == 2
+    assert len(dataset) == 4
     assert set(dataset.features.keys()) == {"header", "sequence", "description"}
 
     # Check first record
@@ -138,3 +153,13 @@ def test_create_dataset_from_gzipped_csv() -> None:
     assert dataset[1]["header"] == "seq2"
     assert dataset[1]["sequence"] == "GCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTA"
     assert dataset[1]["description"] == "Second test sequence"
+
+    # Check third record
+    assert dataset[2]["header"] == "seq3"
+    assert dataset[2]["sequence"] == "TATATATATATATATATATATATATATATATA"
+    assert dataset[2]["description"] == "Third test sequence"
+
+    # Check fourth record
+    assert dataset[3]["header"] == "seq4"
+    assert dataset[3]["sequence"] == "CGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCG"
+    assert dataset[3]["description"].strip() == "Fourth test sequence"
