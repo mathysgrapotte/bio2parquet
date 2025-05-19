@@ -1,21 +1,19 @@
 """FASTA file processing and conversion to Parquet datasets."""
 
-import gzip
 from collections.abc import Iterator
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
-from typing import Any, Callable, Optional, List
+from typing import Optional
 
+import gzip
 from Bio import SeqIO
 from datasets import Dataset, Features, Value
 
 from bio2parquet.errors import FileProcessingError, InvalidFormatError
 
 
-def _handle_fasta_parsing_error(*, condition: bool, message: str, filepath_str: str) -> None:
-    """Helper function to raise InvalidFormatError if a condition is met."""
-    if condition:
-        raise InvalidFormatError(message, filepath_str)
+def _raise_invalid_format_error(message: str, filepath_str: str) -> None:
+    raise InvalidFormatError(message, filepath_str)
 
 
 def read_fasta_file(filepath: Path) -> Iterator[dict[str, str]]:
@@ -46,23 +44,23 @@ def read_fasta_file(filepath: Path) -> Iterator[dict[str, str]]:
                 if first_line == "":
                     return  # Empty file: yield nothing, do not raise
                 if not first_line.strip().startswith(">"):
-                    raise InvalidFormatError("Sequence data found before a header line", str(filepath))
+                    _raise_invalid_format_error("Sequence data found before a header line", str(filepath))
                 handle.seek(0)
                 for record in SeqIO.parse(handle, "fasta"):
                     if not record.seq:
-                        raise InvalidFormatError("Sequence missing for header.", str(filepath))
+                        _raise_invalid_format_error("Sequence missing for header.", str(filepath))
                     yield {"header": record.id, "sequence": str(record.seq)}
         else:
-            with open(filepath, "r", encoding="utf-8") as handle:
+            with open(filepath, encoding="utf-8") as handle:
                 first_line = handle.readline()
                 if first_line == "":
                     return  # Empty file: yield nothing, do not raise
                 if not first_line.strip().startswith(">"):
-                    raise InvalidFormatError("Sequence data found before a header line", str(filepath))
+                    _raise_invalid_format_error("Sequence data found before a header line", str(filepath))
                 handle.seek(0)
                 for record in SeqIO.parse(handle, "fasta"):
                     if not record.seq:
-                        raise InvalidFormatError("Sequence missing for header.", str(filepath))
+                        _raise_invalid_format_error("Sequence missing for header.", str(filepath))
                     yield {"header": record.id, "sequence": str(record.seq)}
     except FileNotFoundError:
         raise FileProcessingError(f"File not found: {filepath}", str(filepath)) from None
@@ -74,12 +72,12 @@ def read_fasta_file(filepath: Path) -> Iterator[dict[str, str]]:
         raise FileProcessingError(f"Error reading file {filepath}: {e}", str(filepath)) from e
 
 
-def _process_chunk(chunk: List[dict[str, str]]) -> List[dict[str, str]]:
+def _process_chunk(chunk: list[dict[str, str]]) -> list[dict[str, str]]:
     """Process a chunk of FASTA records in parallel.
-    
+
     Args:
         chunk: List of FASTA records to process.
-        
+
     Returns:
         Processed records.
     """
@@ -120,7 +118,6 @@ def create_dataset_from_fasta(filepath: Path, chunk_size: int = 1000, max_worker
 
     # Process records in parallel chunks
     chunks = [records[i:i + chunk_size] for i in range(0, len(records), chunk_size)]
-    
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         processed_chunks = list(executor.map(_process_chunk, chunks))
 
