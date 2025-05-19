@@ -109,17 +109,20 @@ def create_dataset_from_csv(filepath: Path) -> Dataset:
 
     Raises:
         FileProcessingError: If the input filepath does not exist or is not a file.
-        InvalidFormatError: If the file is not in valid CSV format or missing required columns.
+        InvalidFormatError: If the file is not in valid CSV format or contains no data rows.
     """
-    if not filepath.exists():
-        raise FileProcessingError(f"Input file does not exist: {filepath}", str(filepath))
-    if not filepath.is_file():
-        raise FileProcessingError(f"Input path is not a file: {filepath}", str(filepath))
+    _validate_file_exists(filepath)
 
-    try:
-        dataset = Dataset.from_csv(str(filepath))
-    except Exception as e:
-        raise InvalidFormatError(f"Could not read CSV: {e}", str(filepath)) from e
+    # Read all records into memory
+    records = list(read_csv_file(filepath))
+
+    if not records:
+        raise InvalidFormatError("File contains no data rows", str(filepath))
+
+    # Create features from the first record
+    features = Features(
+        {key: Value("string") for key in records[0]},
+    )
 
     # Check for required columns
     required_columns = {"header", "sequence"}
@@ -127,4 +130,5 @@ def create_dataset_from_csv(filepath: Path) -> Dataset:
     if missing:
         raise InvalidFormatError(f"Missing required columns: {', '.join(missing)}", str(filepath))
 
-    return dataset
+
+    return Dataset.from_generator(gen, features=features)
