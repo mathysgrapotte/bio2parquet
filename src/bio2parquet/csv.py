@@ -4,7 +4,7 @@ import csv
 from collections.abc import Iterator
 from pathlib import Path
 
-from datasets import Dataset, Features, Value
+from datasets import Dataset
 
 from bio2parquet.errors import FileProcessingError, InvalidFormatError
 
@@ -99,7 +99,7 @@ def read_csv_file(filepath: Path) -> Iterator[dict[str, str]]:
 
 
 def create_dataset_from_csv(filepath: Path) -> Dataset:
-    """Creates a Hugging Face Dataset from a CSV file.
+    """Creates a Hugging Face Dataset from a CSV file with dynamic columns.
 
     Args:
         filepath: Path to the CSV file.
@@ -124,7 +124,11 @@ def create_dataset_from_csv(filepath: Path) -> Dataset:
         {key: Value("string") for key in records[0]},
     )
 
-    def gen() -> Iterator[dict[str, str]]:
-        yield from records
+    # Check for required columns
+    required_columns = {"header", "sequence"}
+    missing = required_columns - set(dataset.column_names)
+    if missing:
+        raise InvalidFormatError(f"Missing required columns: {', '.join(missing)}", str(filepath))
+
 
     return Dataset.from_generator(gen, features=features)
