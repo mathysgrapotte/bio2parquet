@@ -42,7 +42,7 @@ def read_fasta_file(filepath: Path) -> Iterator[dict[str, str]]:
             with gzip.open(filepath, "rt", encoding="utf-8") as handle:
                 first_line = handle.readline()
                 if first_line == "":
-                    return  # Empty file: yield nothing, do not raise
+                    _raise_invalid_format_error("File is empty: no FASTA records found.", str(filepath))
                 if not first_line.strip().startswith(">"):
                     _raise_invalid_format_error("Sequence data found before a header line", str(filepath))
                 handle.seek(0)
@@ -54,7 +54,7 @@ def read_fasta_file(filepath: Path) -> Iterator[dict[str, str]]:
             with open(filepath, encoding="utf-8") as handle:
                 first_line = handle.readline()
                 if first_line == "":
-                    return  # Empty file: yield nothing, do not raise
+                    _raise_invalid_format_error("File is empty: no FASTA records found.", str(filepath))
                 if not first_line.strip().startswith(">"):
                     _raise_invalid_format_error("Sequence data found before a header line", str(filepath))
                 handle.seek(0)
