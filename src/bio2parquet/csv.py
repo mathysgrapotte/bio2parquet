@@ -1,7 +1,9 @@
 """CSV file processing and conversion to Parquet datasets."""
 
 import csv
+import gzip
 from pathlib import Path
+from typing import IO, cast
 
 from datasets import Dataset, load_dataset
 
@@ -33,8 +35,12 @@ def _validate_csv_content(filepath: Path) -> None:
         InvalidFormatError: If the file is empty or missing required columns
     """
     try:
-        with open(filepath, newline="", encoding="utf-8") as f:
-            reader = csv.reader(f)
+        # Check if file is gzipped based on extension
+        open_func = gzip.open if filepath.suffix == ".gz" else open
+        mode = "rt" if filepath.suffix == ".gz" else "r"
+
+        with open_func(filepath, mode, newline="", encoding="utf-8") as f:
+            reader = csv.reader(cast("IO[str]", f))
             try:
                 _header = next(reader)
             except StopIteration as err:
