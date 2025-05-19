@@ -117,7 +117,7 @@ def create_dataset_from_fasta(filepath: Path, chunk_size: int = 1000, max_worker
         return Dataset.from_dict({"header": [], "sequence": []}, features=features)
 
     # Process records in parallel chunks
-    chunks = [records[i:i + chunk_size] for i in range(0, len(records), chunk_size)]
+    chunks = [records[i : i + chunk_size] for i in range(0, len(records), chunk_size)]
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         processed_chunks = list(executor.map(_process_chunk, chunks))
 
