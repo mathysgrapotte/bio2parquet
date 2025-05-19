@@ -1,6 +1,7 @@
 """Tests for CSV file processing and conversion."""
 
 import csv
+import gzip
 from pathlib import Path
 
 import pytest
@@ -27,6 +28,25 @@ def sample_csv_path(tmp_path: Path) -> Path:
     """
     csv_path = tmp_path / "test.csv"
     with open(csv_path, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["header", "sequence", "description"])
+        writer.writerow(["seq1", "ATCGATCGATCGATCGATCGATCGATCGATCG", "First test sequence"])
+        writer.writerow(["seq2", "GCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTA", "Second test sequence"])
+    return csv_path
+
+
+@pytest.fixture
+def sample_gzipped_csv_path(tmp_path: Path) -> Path:
+    """Create a sample gzipped CSV file for testing.
+
+    Args:
+        tmp_path: Pytest fixture providing a temporary directory
+
+    Returns:
+        Path to the created gzipped CSV file
+    """
+    csv_path = tmp_path / "test.csv.gz"
+    with gzip.open(csv_path, "wt", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(["header", "sequence", "description"])
         writer.writerow(["seq1", "ATCGATCGATCGATCGATCGATCGATCGATCG", "First test sequence"])
@@ -98,3 +118,23 @@ def test_create_dataset_from_csv_only_required_columns(tmp_path: Path) -> None:
     assert set(dataset.features.keys()) == {"header", "sequence"}
     assert dataset[0]["header"] == "seq1"
     assert dataset[0]["sequence"] == "ATCGATCGATCGATCGATCGATCGATCGATCG"
+
+
+def test_create_dataset_from_gzipped_csv() -> None:
+    """Test creating a dataset from a valid gzipped CSV file."""
+    gzipped_csv_path = Path("tests/data/csv/sample.csv.gz")
+    dataset = create_dataset_from_csv(gzipped_csv_path)
+
+    assert isinstance(dataset, Dataset)
+    assert len(dataset) == 2
+    assert set(dataset.features.keys()) == {"header", "sequence", "description"}
+
+    # Check first record
+    assert dataset[0]["header"] == "seq1"
+    assert dataset[0]["sequence"] == "ATCGATCGATCGATCGATCGATCGATCGATCG"
+    assert dataset[0]["description"] == "First test sequence"
+
+    # Check second record
+    assert dataset[1]["header"] == "seq2"
+    assert dataset[1]["sequence"] == "GCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTA"
+    assert dataset[1]["description"] == "Second test sequence"
