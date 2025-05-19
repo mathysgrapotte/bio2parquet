@@ -12,9 +12,9 @@ import click
 if TYPE_CHECKING:
     from datasets import Dataset
 
+from bio2parquet.csv import create_dataset_from_csv
 from bio2parquet.errors import Bio2ParquetError, print_error
 from bio2parquet.fasta import create_dataset_from_fasta
-from bio2parquet.csv import create_dataset_from_csv
 
 
 def _handle_empty_dataset(dataset: "Dataset") -> None:
