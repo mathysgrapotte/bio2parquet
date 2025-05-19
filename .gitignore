@@ -25,7 +25,7 @@ uv.lock
 __pycache__/
 
 # cursor
-.cursorrules
+.cursor
 requirements.md
 prompts.md
 
