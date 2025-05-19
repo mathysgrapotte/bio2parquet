@@ -18,11 +18,6 @@ def _handle_fasta_parsing_error(*, condition: bool, message: str, filepath_str: 
         raise InvalidFormatError(message, filepath_str)
 
 
-def open_gz_file_text(fp: Path, m: str) -> Any:
-    """Open a GZIP file with text mode."""
-    return gzip.open(fp, m, encoding="utf-8")
-
-
 def read_fasta_file(filepath: Path) -> Iterator[dict[str, str]]:
     """Reads a FASTA file and yields records as dictionaries.
 
@@ -44,9 +39,15 @@ def read_fasta_file(filepath: Path) -> Iterator[dict[str, str]]:
         raise FileProcessingError(f"Input path is not a file: {filepath}", str(filepath))
 
     try:
-        # Bio.SeqIO automatically handles gzip files
-        for record in SeqIO.parse(str(filepath), "fasta"):
-            yield {"header": record.id, "sequence": str(record.seq)}
+        # Handle gzip files explicitly
+        if filepath.name.endswith(".gz"):
+            with gzip.open(filepath, "rt", encoding="utf-8") as handle:
+                for record in SeqIO.parse(handle, "fasta"):
+                    yield {"header": record.id, "sequence": str(record.seq)}
+        else:
+            with open(filepath, "r", encoding="utf-8") as handle:
+                for record in SeqIO.parse(handle, "fasta"):
+                    yield {"header": record.id, "sequence": str(record.seq)}
     except FileNotFoundError:
         raise FileProcessingError(f"File not found: {filepath}", str(filepath)) from None
     except gzip.BadGzipFile:
