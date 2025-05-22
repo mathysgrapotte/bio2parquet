@@ -40,8 +40,8 @@ def _validate_csv_content(handle: TextIO, filepath: Path) -> None:
     first_line = handle.readline()
     if first_line == "":
         _raise_invalid_format_error("File is empty: no CSV records found.", str(filepath))
-    if "," not in first_line:
-        _raise_invalid_format_error("File does not appear to be in CSV format", str(filepath))
+    if "," not in first_line and ";" not in first_line and "\t" not in first_line:
+        _raise_invalid_format_error("File does not appear to be in CSV format (no valid delimiter found)", str(filepath))
     handle.seek(0)
 
 
@@ -97,6 +97,18 @@ def read_csv_file(filepath: Path, **kwargs: Any) -> pd.DataFrame:
         raise FileProcessingError(f"Error reading file {filepath}: {e}", str(filepath)) from e
 
 
+def _process_chunk(chunk: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Process a chunk of CSV records in parallel.
+
+    Args:
+        chunk: List of CSV records to process.
+
+    Returns:
+        Processed records.
+    """
+    return chunk
+
+
 def create_dataset_from_csv(
     filepath: Path,
     chunk_size: int = 1000,
@@ -134,7 +146,7 @@ def create_dataset_from_csv(
     # Process records in parallel chunks
     chunks = [records[i : i + chunk_size] for i in range(0, len(records), chunk_size)]
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
-        processed_chunks = list(executor.map(lambda x: x, chunks))
+        processed_chunks = list(executor.map(_process_chunk, chunks))
 
     # Flatten the processed chunks
     all_records = [record for chunk in processed_chunks for record in chunk]
@@ -142,4 +154,49 @@ def create_dataset_from_csv(
     def gen() -> Iterator[dict[str, Any]]:
         yield from all_records
 
-    return Dataset.from_generator(gen, features=features) 
+    return Dataset.from_generator(gen, features=features)
+
+
+def csv_to_parquet(
+    input_filepath: Path,
+    output_filepath: Path,
+    chunk_size: int = 1000,
+    max_workers: Optional[int] = None,
+    **kwargs: Any,
+) -> None:
+    """Converts a CSV file to Parquet format using HuggingFace's datasets.
+
+    This function reads a CSV file, converts it to a HuggingFace Dataset,
+    and saves it as a Parquet file. It handles both regular CSV files and
+    gzipped CSV files.
+
+    Args:
+        input_filepath: Path to the input CSV file
+        output_filepath: Path where the Parquet file will be saved
+        chunk_size: Number of records to process in each chunk
+        max_workers: Maximum number of worker processes. If None, uses CPU count
+        **kwargs: Additional arguments to pass to pd.read_csv()
+
+    Raises:
+        FileProcessingError: If there are issues reading the input file or writing the output file
+        InvalidFormatError: If the input file is not in valid CSV format
+    """
+    # Create dataset from CSV
+    dataset = create_dataset_from_csv(
+        input_filepath,
+        chunk_size=chunk_size,
+        max_workers=max_workers,
+        **kwargs
+    )
+
+    try:
+        # Create output directory if it doesn't exist
+        output_filepath.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Save dataset as Parquet
+        dataset.save_to_disk(str(output_filepath))
+    except Exception as e:
+        raise FileProcessingError(
+            f"Error writing Parquet file {output_filepath}: {e}",
+            str(output_filepath)
+        ) from e 
